@@ -1,45 +1,51 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
-def precipitations(year,month,day):                    # Cette fonction permet simplement de représenter l'évolutiond es précipitations en Ile-de-France sur une journée.
-    path = 'data/'+'{:04d}/'.format(year)
-    file = 'RR_IDF300x300_{:04d}{:02d}{:02d}.npy'.format(year,month,day)
-    file = path + file
-    RR = np.load(file)/100.0
-    RR[RR < 0]=np.nan
-    plt.figure()
-    plt.ion()        
-    for i in range (288):
-        plt.imshow(RR[i,:,:], cmap='Blues')
-        #plt.show(block=True)
-        #cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-        #cv2.imshow('image', RR[i,:,:], cmap='Blues')
-        plt.pause(0.2)
-        plt.clf()
+GRID_SIZE = 300
+TIME_STEPS_PER_DAY = 288
 
-def segmentation_evenements(year,month,day):        # Cette fonction permet de séparer les différents événements de précipitations.
-    path = 'data/'+'{:04d}/'.format(year)
-    file = 'RR_IDF300x300_{:04d}{:02d}{:02d}.npy'.format(year,month,day)
-    file = path + file
-    RR = np.load(file)/100.0
-    RR[RR < 0]=np.nan
-    RR_seg = np.zeros([288,300,300])        # RR_seg sera une carte simplifiée indiquant simplement où un événement de précpitation est en cours. C'est un tableau binaire.
-    for i in range (300):
-        for j in range (300):
+def segmentation_events(year, month, day):
+    path = f'data/{year:04d}/'
+    file_name = f'RR_IDF300x300_{year:04d}{month:02d}{day:02d}.npy'
+    full_path = path + file_name
+    raw_data = np.load(full_path) / 100.0
+    raw_data[raw_data < 0] = np.nan
+
+    raw_events = np.zeros((TIME_STEPS_PER_DAY, GRID_SIZE, GRID_SIZE))
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
             t = 0
-            t1 = 0
-            while (t<288):
-                if (RR[t,i,j]>0):
-                    RR_seg[t,i,j] = 1
-                    t1 = 0      # Compteur du temps à partir du dernier instant de pluie. S'il atteint 6, alors l'événement de pluie est terminé.
-                    t = t+1
-                    t0 = t      # t0 permet de garder en mémoire le premier instant de l'acalmie.
-                    while (t<288 and (RR[t,i,j]==np.nan) and t1<6):      # Deux averses au même endroit font partie du même événement pluvieux si elles adviennent à moins de 30 min d'intervalle.
-                        t1 = t1+1
-                        t = t+1
-                    if (t<288 and t1<6):
-                        for t2 in range (t0,t+1):
-                            RR_seg[t2,i,j] = 1
-                else :
-                    t = t+1
-    return RR_seg
+            while t < TIME_STEPS_PER_DAY:
+                if not np.isnan(raw_data[t, i, j]):
+                    start = t
+                    while t < TIME_STEPS_PER_DAY and not np.isnan(raw_data[t, i, j]):
+                        raw_events[t, i, j] = 1
+                        t += 1
+                    if t - start > 5:  # Applying a 30-minute rule for precipitation events
+                        raw_events[start:t, i, j] = 1
+                t += 1
+    return raw_events, raw_data
+
+def event_length(year, month, day):
+    raw_events, raw_data = segmentation_events(year, month, day)
+    # Initialize an empty array of objects
+    lengths = np.empty((GRID_SIZE, GRID_SIZE), dtype=object)
+
+    # Populate the array with empty lists
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
+            lengths[i, j] = []
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
+            events = []
+            t = 0
+            while t < TIME_STEPS_PER_DAY:
+                if raw_events[t, i, j] == 1:
+                    start = t
+                    while t < TIME_STEPS_PER_DAY and raw_events[t, i, j] == 1:
+                        t += 1
+                    length = t - start
+                    events.append((start, length))
+                t += 1
+            lengths[i, j] = events
+    return lengths, raw_data
+
