@@ -67,7 +67,7 @@ class DatasetCreator:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create dataset for a specific year and month, save to .pkl')
     parser.add_argument('-y', '--year', default=2018, type=int, required=False, help='The year of the dataset.')
-    parser.add_argument('-n', '--months', default=1, type=int, required=False, help='The number of months from January for which the dataset will be created.')
+    parser.add_argument('-n', '--months', default=12, type=int, required=False, help='The number of months from January for which the dataset will be created.')
     args = parser.parse_args()
 
     for month in range(1, args.months + 1):
