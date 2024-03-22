@@ -11,6 +11,7 @@ import contextily as cx
 N_CLUSTERS = 10
 IMAGE_DIR = 'images'
 TMP_DIR = 'tmp'
+TIME_STEPS_PER_DAY = 288
 
 
 def prepare_directories():
