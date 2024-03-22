@@ -8,12 +8,11 @@ import matplotlib.lines as mlines
 import imageio
 import contextily as cx
 
-# Constants
-N_CLUSTERS = 10  # Adjust as necessary based on your dataset
+N_CLUSTERS = 10
 IMAGE_DIR = 'images'
 TMP_DIR = 'tmp'
 
-# Utility Functions
+
 def prepare_directories():
     for directory in [IMAGE_DIR, TMP_DIR]:
         os.makedirs(directory, exist_ok=True)
