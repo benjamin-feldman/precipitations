@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from utils import event_length, GRID_SIZE, TIME_STEPS_PER_DAY
+from utils import segmentation_events, event_length, GRID_SIZE, TIME_STEPS_PER_DAY
 import argparse
 import re
 
@@ -37,13 +37,14 @@ class DatasetCreator:
         count = 0
         for index, (year, month, day) in enumerate(dates):
             print(f"Processing file {index + 1}/{len(dates)}: {day}/{month}/{year}")
-            raw_events, raw_data = event_length(year, month, day)
+            raw_events, raw_data = segmentation_events(year, month, day)
+            events = event_length(raw_events)
             for i in range(GRID_SIZE):
                 for j in range(GRID_SIZE):
                     if count % 1000 == 0:
                         print(f"{day}/{month}/{year}: {count} / {max_count}")
                     count += 1
-                    for event_index, (start_time, duration) in enumerate(raw_events[i, j]):
+                    for event_index, (start_time, duration) in enumerate(events[i, j]):
                         stats = self.event_stats(raw_data, i, j, start_time, duration)
                         rows.append({
                             'year': year, 'month': month, 'day': day, 
@@ -62,14 +63,21 @@ class DatasetCreator:
         print(f"Extracting dataframe for {self.year}, {self.month_names[self.month-1]}")
         df = self.extract_df_month()
         df['end_time_absolute'] = df['start_time_absolute'] + df['duration']
-        df.to_pickle(f'data/dataframes/{self.year}_{self.month}.pkl')
+        
+        directory = 'data/dataframes'
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        
+        file_path = f'{directory}/{self.year}_{self.month}.pkl'
+        df.to_pickle(file_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create dataset for a specific year and month, save to .pkl')
-    parser.add_argument('-y', '--year', default=2018, type=int, required=False, help='The year of the dataset.')
-    parser.add_argument('-n', '--months', default=12, type=int, required=False, help='The number of months from January for which the dataset will be created.')
+    parser.add_argument('-y', '--year', default=2020, type=int, required=False, help='The year of the dataset.')
+    parser.add_argument('-s', '--start_month', default=6, type=int, required=False, help='The start month for which the dataset will be created.')
+    parser.add_argument('-e', '--end_month', default=12, type=int, required=False, help='The end month for which the dataset will be created.')
     args = parser.parse_args()
 
-    for month in range(1, args.months + 1):
+    for month in range(args.start_month, args.end_month + 1):
         dc = DatasetCreator(args.year, month)
         dc.write_df_month()

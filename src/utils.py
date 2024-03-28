@@ -1,10 +1,11 @@
+from joblib import Parallel, delayed
 import numpy as np
 
 GRID_SIZE = 300
 TIME_STEPS_PER_DAY = 288
 
 def read_data(year, month, day):
-    path = f'../data/raw_data/{year:04d}/'
+    path = f'data/raw_data/{year:04d}/'
     file_name = f'RR_IDF300x300_{year:04d}{month:02d}{day:02d}.npy'
     full_path = path + file_name
     try:
@@ -13,6 +14,7 @@ def read_data(year, month, day):
     except FileNotFoundError:
         raise FileNotFoundError(f"The file {full_path} does not exist.")
     return raw_data
+
 
 def segmentation_events(year, month, day):
     raw_data = read_data(year, month, day)
@@ -33,11 +35,10 @@ def segmentation_events(year, month, day):
                 t += 1
     return raw_events, raw_data
 
-def event_length(year, month, day):
+def event_length(raw_events):
     """
     Calculates the length of weather events.
     """
-    raw_events, raw_data = segmentation_events(year, month, day)
     lengths = np.empty((GRID_SIZE, GRID_SIZE), dtype=object)
 
     for i in range(GRID_SIZE):
@@ -50,8 +51,10 @@ def event_length(year, month, day):
                     while t < TIME_STEPS_PER_DAY and raw_events[t, i, j] == 1:
                         t += 1
                     events.append((start, t - start))
+                else:
+                    t += 1
             lengths[i, j] = events
-    return lengths, raw_data
+    return lengths
 
 def extract_time_series(year, month, day, pixels_indices: list):
     raw_data = read_data(year, month, day)
