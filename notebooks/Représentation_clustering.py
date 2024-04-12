@@ -60,15 +60,17 @@ def affichage_répartition_clusters_2(tableau_proportions, month, year, color = 
     shape = tableau_prop_lst.shape
     print(shape)
     k = tableau_prop_lst.shape[2]   # k représente le nombre de clusters.
-    fig, axes = plt.subplots(1+(k-1)//3, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1+(k-1)//3, 3, figsize=(15, 7))
     sums = tableau_prop_lst.sum(axis=2)
     if (k<=3):
         for l in range (k):
             carte_répartition = tableau_prop_lst[:,:,l] / sums
             im = axes[l].imshow(carte_répartition, cmap = color)
             axes[l].set_title('Répartition du cluster {}'.format(l))
-            cbar = fig.colorbar(im, ax=axes[l])
-            cbar.set_label("Proportion d'événements dans le cluster {}".format(l))
+            cbar = fig.colorbar(im, ax=axes[l], shrink=0.8)
+            cbar.set_label("Proportion d'événements dans le cluster {}".format(l), size='medium')
+            size_colorbar = cbar.ax.get_position().height
+            cbar.ax.yaxis.label.set_size(size_colorbar * 0.5)
     else : 
         for l in range (k):
             carte_répartition = tableau_prop_lst[:,:,l] / sums
@@ -77,17 +79,22 @@ def affichage_répartition_clusters_2(tableau_proportions, month, year, color = 
             cbar = fig.colorbar(im, ax=axes[l//3, l%3])
             cbar.set_label("Proportion d'événements dans le cluster {}".format(l)) 
     titre = "Cartes géographiques de la répartition des différents clusters pour un nombre de clusters égal à " + str(k)
-    plt.title(titre)
+    fig.suptitle(titre)
     sous_titre = month + "/" + year
-    plt.suptitle(sous_titre)
+    fig.text(0.5, 0.95, sous_titre, ha='center', va='top')
     plt.tight_layout()
     plt.show()
 
     
 mois = "06-09"
 année = "2018"
+nombre_clusters = 5
+méthode_normalisation = "Divmax"
+rm_outliers = "yes"
 #chemin_proportions = ".\Répartition_2_clusters_" + mois + "_" + année + ".csv"
-chemin_proportions = ".\Répartition_4_clusters_06-09_" + année + ".csv"
+#chemin_proportions = ".\Répartition_" + str(nombre_clusters) + "_clusters_06-09_" + année + "_norm=" + méthode_normalisation + ".csv"
+#chemin_proportions = ".\Répartition_" + str(nombre_clusters) + "_clusters_06-09_" + année + ".csv"
+chemin_proportions = ".\Répartition_" + str(nombre_clusters) + "_clusters_06-09_" + année + "_norm=" + méthode_normalisation + "rm_outliers=" + rm_outliers + ".csv"
 tableau_proportions_df = pd.read_csv(chemin_proportions)
 #print(tableau_proportions_df)
 affichage_répartition_clusters_2(tableau_proportions_df, mois, année)
