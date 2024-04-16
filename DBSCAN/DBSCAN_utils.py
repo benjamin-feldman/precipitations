@@ -7,6 +7,7 @@ from sklearn.cluster import DBSCAN
 from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
 import pickle
+import matplotlib.patches as patches
 
 def data_importation(year=2018, month=1, day=1):
     # Constructs the path to a numpy data file based on year, month, and day
@@ -92,6 +93,31 @@ def affichage_clusters(dict_labels, longitude_max, latitude_max):
             axs[i, j].set_title(f'clusters({i},{j})')
             axs[i, j].axis('off')
     plt.show()
+    
+
+
+def affichage_clusters_enhanced(dict_labels, core_points, longitude_max, latitude_max, width):
+    # Creates a subplot grid for displaying clustering results based on the provided labels dictionary.
+    fig, axs = plt.subplots(longitude_max, latitude_max, figsize=(5 * latitude_max, 5 * longitude_max))
+    for i in range(longitude_max):
+        for j in range(latitude_max):
+            label_key = f"labels({i},{j})"
+            core_key = f"core_points({i},{j})"
+            if label_key in dict_labels and core_key in core_points:
+                axs[i, j].imshow(dict_labels[label_key], cmap='viridis')
+                # Highlight core points
+                for point_index in core_points[core_key]:
+                    y, x = divmod(point_index, width)  # Convert index to x, y coordinates
+                    circle = patches.Circle((x, y), radius=0.3, edgecolor='red', facecolor='none')
+                    axs[i, j].add_patch(circle)
+                axs[i, j].set_title(f'Clusters {i},{j}')
+                axs[i, j].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+# Example usage assuming you have dict_labels and core_points calculated
+# affichage_clusters_enhanced(dict_labels, core_points, 2, 2, 10)
+
 
 def traduction_core_points_map(step, width, i, j, core_points):
     # Translates core points indices to their respective positions in the subgroup and on the overall map.
@@ -101,9 +127,6 @@ def traduction_core_points_map(step, width, i, j, core_points):
         points_groupe.append({"x_groupe": point % width, "y_groupe": point // width})
         points_map.append({"x_map": i * step + point % width, "y_map": j * step + point // width})
     return points_groupe, points_map
-
-
-
 
 ######################## suite a revoir
 
@@ -134,25 +157,42 @@ def merge_clusters_if_shared_core_point(i1, j1, i2, j2, core_points, dict, step,
 
     # Translate core points to map coordinates to handle them in a unified coordinate system
     _, points_map1 = traduction_core_points_map(step, width, i1, j1, core_points_1)
+    
     _, points_map2 = traduction_core_points_map(step, width, i2, j2, core_points_2)
-
+    
     # Find common core points between the two sections
     set_core_points1 = {tuple(point.values()) for point in points_map1}
     set_core_points2 = {tuple(point.values()) for point in points_map2}
     common_core_points = set_core_points1.intersection(set_core_points2)
+    
 
     # Relabel clusters based on shared core points
+    for point in common_core_points:
+        point_group1 = (point[0] - i1 * step, point[1] - j1 * step)
+        point_group2 = (point[0] - i2 * step, point[1] - j2 * step)
+        
+        label_1 = labels_1[point_group1[0], point_group1[1]]
+        label_2 = labels_2[point_group2[0], point_group2[1]]
+        if label_1 != label_2 and label_1 is not None and label_2 is not None:
+            
+            for i in range(labels_2.shape[0]):
+                for j in range(labels_2.shape[1]):
+                    if labels_2[i, j] == label_2:
+                        labels_2[i, j] = label_1
+            processed_labels.add(label_1)
+            
+            
     for point in common_core_points:
         point_group1 = (point[0] - i1 * step, point[1] - j1 * step)
         point_group2 = (point[0] - i2 * step, point[1] - j2 * step)
         label_1 = labels_1[point_group1[0], point_group1[1]]
         label_2 = labels_2[point_group2[0], point_group2[1]]
         if label_1 != label_2 and label_1 is not None and label_2 is not None:
-            for i in range(labels_2.shape[0]):
-                for j in range(labels_2.shape[1]):
-                    if labels_2[i, j] == label_2:
-                        labels_2[i, j] = label_1
-            processed_labels.add(label_1)
+            for i in range(labels_1.shape[0]):
+                for j in range(labels_1.shape[1]):
+                    if labels_1[i, j] == label_1:
+                        labels_1[i, j] = label_2
+            processed_labels.add(label_2)
 
     # Relabel the remaining points in the second section to ensure they remain unique
     for point in set_core_points2 - common_core_points:
@@ -169,5 +209,6 @@ def merge_clusters_if_shared_core_point(i1, j1, i2, j2, core_points, dict, step,
     # Update the labels in the dictionary for both sections
     dict[f"labels({i1},{j1})"] = labels_1
     dict[f"labels({i2},{j2})"] = labels_2
+    
+    return running_max_label,processed_labels, dict
 
-    return running_max_label, dict
