@@ -9,7 +9,7 @@ import time
 import os
 import ast
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, FunctionTransformer
 
 
 path = 'C:/Users/Trist/Documents/Cours 2A - CS/Semestre 8/Projet S8/features_01012018.csv'
@@ -24,17 +24,50 @@ def chargement_données_zippées(chemin_dossier_zip):
     df['end_time_absolute'] = df['start_time_absolute'] + df['duration'] # should be removed in the future (newly generated .pkl files will already have this column)
     return(df)
 
-def clustering_KMeans(data_complète, k):
+
+## Petite fonction qui divise chaque colonne par sa valeur maximale.
+def max_scaling(X):
+    return X / X.max(axis=0)
+
+def remove_outliers(data, features):
+    Q1 = data[features].quantile(0.25)
+    Q3 = data[features].quantile(0.75)
+    print(Q1, Q3)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 0 * IQR
+    upper_bound = Q3 + 0 * IQR
+    return data[(data[features] >= lower_bound) & (data[features] <= upper_bound)].dropna()
+
+def remove_outliers_zscore(data, features):
+    z_scores = (data[features] - data[features].mean()) / data[features].std()
+    return data[(z_scores.abs() < 3).all(axis=1)]
+
+def clustering_KMeans(data_complète, k, normalisation="Standard", rm_outliers='no'):
     FEATURES = ['duration', 'max_intensity', 'mean_intensity', 'variance', 'percentage_null']
-    pipeline = Pipeline([
-    ('scaling', StandardScaler()),
-    ('clustering', KMeans(n_clusters=k, random_state=42))  # Adjust n_clusters as needed
-    ])
-    data_complète['cluster'] = pipeline.fit_predict(data_complète[FEATURES])
+    data_complète_2 = data_complète
+    if (rm_outliers == "yes"):
+        data_complète_2 = remove_outliers_zscore(data_complète, FEATURES)
+         # Vérifier si des données sont disponibles après la suppression des valeurs aberrantes
+        if (data_complète_2.shape[0] == 0):
+            print("Toutes les données ont été supprimées lors du processus de suppression des valeurs aberrantes.")
+            return None
+    if (normalisation == "Standard"):
+        pipeline = Pipeline([
+        ('scaling', StandardScaler()),
+        ('clustering', KMeans(n_clusters=k, random_state=42))  # Adjust n_clusters as needed
+        ])
+    elif (normalisation == "Divmax"):
+        pipeline = Pipeline([
+        ('scaling', FunctionTransformer(max_scaling)),
+        ('clustering', KMeans(n_clusters=k, random_state=42))  # Adjust n_clusters as needed
+        ])
+    else : 
+        print("ERREUR : L'argument normalisation doit prendre la valeur 'Standard' ou la valeur 'Divmax'.")
+    data_complète_2['cluster'] = pipeline.fit_predict(data_complète_2[FEATURES])
     cluster_centers = pipeline.named_steps['clustering'].cluster_centers_
     print("Les centres des clusters sont :\n", cluster_centers)
-    print (data_complète)
-    return data_complète
+    print (data_complète_2)
+    return data_complète_2
     
 
 def occurences_clusters(data_clusters, k):
@@ -63,7 +96,7 @@ def occurences_clusters(data_clusters, k):
             if j in counts.index:
                 tableau_proportions[i][j] = counts.loc[j].tolist()
     
-    print("Construction du tableau d'occurrence des clusters terminée. La machine exécute désormais l'affichage.")
+    print("Construction du tableau d'occurrence des clusters terminée.")
     return tableau_proportions
         
 
@@ -91,10 +124,12 @@ data_3 = chargement_données_zippées(chemin_dossier_zip_3)
 chemin_dossier_zip_4 = "C:/Users/Trist/Documents/Cours 2A - CS/Semestre 8/Projet S8/" + année + "_09.zip"
 data_4 = chargement_données_zippées(chemin_dossier_zip_4)
 data = pd.concat([data_1, data_2, data_3, data_4])
-data_clusters = clustering_KMeans(data, k)
+méthode_normalisation = "Standard"
+rm_outliers = "no"
+data_clusters = clustering_KMeans(data, k, normalisation=méthode_normalisation, rm_outliers=rm_outliers)
 tableau_proportions = occurences_clusters(data_clusters, k)
 tableau_proportions_df = pd.DataFrame(tableau_proportions)
-nom_fichier = "Répartition_" + str(k) + "_clusters_06-09_" + année + ".csv"
+nom_fichier = "Prop_clusters\Répartition_" + str(k) + "_clusters_06-09_" + année + "_norm=" + méthode_normalisation + "_rm_outliers=" + rm_outliers + ".csv"
 tableau_proportions_df.to_csv(nom_fichier, sep=',', index=True)
 print ("Terminé !")
 
