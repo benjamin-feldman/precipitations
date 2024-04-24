@@ -5,7 +5,7 @@ import time
 GRID_SIZE = 300
 TIME_STEPS_PER_DAY = 288
 
-def read_data(year:int, month:int, day:int) -> np.ndarray:
+def read_data(year:int, month:int, day:int, treshold:float=1e-3) -> np.ndarray:
     path = f'data/raw_data/{year:04d}/'
     file_name = f'RR_IDF300x300_{year:04d}{month:02d}{day:02d}.npy'
     full_path = path + file_name
@@ -14,6 +14,11 @@ def read_data(year:int, month:int, day:int) -> np.ndarray:
         raw_data[raw_data < 0] = np.nan
     except FileNotFoundError:
         raise FileNotFoundError(f"The file {full_path} does not exist.")
+    # if data under treshold, set it to 0
+    raw_data[raw_data < treshold] = 0
+    # divide by 12 to get the actual mm value
+    #raw_data = raw_data / 12
+
     return raw_data
 
 def segment_events(time_series: np.ndarray) -> list:
