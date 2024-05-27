@@ -5,9 +5,10 @@ import time
 GRID_SIZE = 300
 TIME_STEPS_PER_DAY = 288
 
-def read_data(year:int, month:int, day:int, treshold:float=1e-3) -> np.ndarray:
-    path = f'data/raw_data/{year:04d}/'
-    file_name = f'RR_IDF300x300_{year:04d}{month:02d}{day:02d}.npy'
+
+def read_data(year: int, month: int, day: int, treshold: float = 1e-3) -> np.ndarray:
+    path = f"data/raw_data/{year:04d}/"
+    file_name = f"RR_IDF300x300_{year:04d}{month:02d}{day:02d}.npy"
     full_path = path + file_name
     try:
         raw_data = np.load(full_path) / 100.0
@@ -17,9 +18,10 @@ def read_data(year:int, month:int, day:int, treshold:float=1e-3) -> np.ndarray:
     # if data under treshold, set it to 0
     raw_data[raw_data < treshold] = 0
     # divide by 12 to get the actual mm value
-    #raw_data = raw_data / 12
+    # raw_data = raw_data / 12
 
     return raw_data
+
 
 def segment_events(time_series: np.ndarray) -> list:
     events = []
@@ -29,28 +31,27 @@ def segment_events(time_series: np.ndarray) -> list:
         current_value = time_series[i]
         if current_value != 0 and not np.isnan(current_value):
             if current_event_start is None:
-                # Start a new event if there's none active
                 current_event_start = i
             elif i > 0 and (i - last_non_zero_index) > 5:
-                # If current index and last non-zero index are more than 5 minutes apart, end current event
                 events.append((current_event_start, last_non_zero_index))
-                current_event_start = i  # Start a new event
+                current_event_start = i
         else:
             if current_event_start is not None and (i - last_non_zero_index) > 5:
-                # End current event if there's a gap of more than 30 minutes
                 events.append((current_event_start, last_non_zero_index))
                 current_event_start = None
-        
-        if current_value != 0 and not np.isnan(current_value):
-            last_non_zero_index = i  # Update the last non-zero index
 
-    # If an event is still open at the end of the array, close it
+        if current_value != 0 and not np.isnan(current_value):
+            last_non_zero_index = i
+
     if current_event_start is not None:
         events.append((current_event_start, last_non_zero_index))
 
     return events
 
-def get_events(raw_data: np.ndarray) -> np.ndarray: #raw_data coming from read_data(year, month, day)
+
+def get_events(
+    raw_data: np.ndarray,
+) -> np.ndarray:  # raw_data coming from read_data(year, month, day)
     global GRID_SIZE
 
     events = np.empty((GRID_SIZE, GRID_SIZE), dtype=object)
@@ -58,22 +59,27 @@ def get_events(raw_data: np.ndarray) -> np.ndarray: #raw_data coming from read_d
         for j in range(GRID_SIZE):
             pixel_events = segment_events(raw_data[:, i, j])
             events[i, j] = pixel_events
-            
+
     return events
+
 
 def timer(func):
     """
     Decorator that prints the execution time of the function it decorates.
     """
+
     def wrapper(*args, **kwargs):
         start_time = time.time()  # Record the start time
         result = func(*args, **kwargs)  # Call the function
         end_time = time.time()  # Record the end time
         print(f"{func.__name__} executed in {end_time - start_time:.4f} seconds")
         return result
+
     return wrapper
 
+
 # Legacy code
+
 
 def segmentation_events_legacy(year, month, day):
     global TIME_STEPS_PER_DAY, GRID_SIZE
@@ -95,6 +101,7 @@ def segmentation_events_legacy(year, month, day):
                         raw_events[start:t, i, j] = 1
                 t += 1
     return raw_events, raw_data
+
 
 def event_length_legacy(raw_events):
     """
