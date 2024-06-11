@@ -1,12 +1,13 @@
 from joblib import Parallel, delayed
 import numpy as np
 import time
+from typing import List, Tuple
 
 GRID_SIZE = 300
 TIME_STEPS_PER_DAY = 288
 
 
-def read_data(year: int, month: int, day: int, treshold: float = 1e-3) -> np.ndarray:
+def read_data(year: int, month: int, day: int, threshold: float = 1e-3) -> np.ndarray:
     path = f"data/raw_data/{year:04d}/"
     file_name = f"RR_IDF300x300_{year:04d}{month:02d}{day:02d}.npy"
     full_path = path + file_name
@@ -15,17 +16,14 @@ def read_data(year: int, month: int, day: int, treshold: float = 1e-3) -> np.nda
         raw_data[raw_data < 0] = np.nan
     except FileNotFoundError:
         raise FileNotFoundError(f"The file {full_path} does not exist.")
-    # if data under treshold, set it to 0
-    raw_data[raw_data < treshold] = 0
-    # divide by 12 to get the actual mm value
-    # raw_data = raw_data / 12
-
+    raw_data[raw_data < threshold] = 0
     return raw_data
 
 
-def segment_events(time_series: np.ndarray) -> list:
+def segment_events(time_series: np.ndarray) -> List[Tuple[int, int]]:
     events = []
     current_event_start = None
+    last_non_zero_index = -1
 
     for i in range(len(time_series)):
         current_value = time_series[i]
@@ -49,17 +47,12 @@ def segment_events(time_series: np.ndarray) -> list:
     return events
 
 
-def get_events(
-    raw_data: np.ndarray,
-) -> np.ndarray:  # raw_data coming from read_data(year, month, day)
-    global GRID_SIZE
-
+def get_events(raw_data: np.ndarray) -> np.ndarray:
     events = np.empty((GRID_SIZE, GRID_SIZE), dtype=object)
     for i in range(GRID_SIZE):
         for j in range(GRID_SIZE):
             pixel_events = segment_events(raw_data[:, i, j])
             events[i, j] = pixel_events
-
     return events
 
 
@@ -69,21 +62,17 @@ def timer(func):
     """
 
     def wrapper(*args, **kwargs):
-        start_time = time.time()  # Record the start time
-        result = func(*args, **kwargs)  # Call the function
-        end_time = time.time()  # Record the end time
-        print(f"{func.__name__} executed in {end_time - start_time:.4f} seconds")
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"{func.__name__} executed in {
+              end_time - start_time:.4f} seconds")
         return result
 
     return wrapper
 
 
-# Legacy code
-
-
-def segmentation_events_legacy(year, month, day):
-    global TIME_STEPS_PER_DAY, GRID_SIZE
-
+def segmentation_events_legacy(year: int, month: int, day: int) -> Tuple[np.ndarray, np.ndarray]:
     raw_data = read_data(year, month, day)
     raw_events = np.zeros((TIME_STEPS_PER_DAY, GRID_SIZE, GRID_SIZE))
 
@@ -96,18 +85,16 @@ def segmentation_events_legacy(year, month, day):
                     while t < TIME_STEPS_PER_DAY and not np.isnan(raw_data[t, i, j]):
                         raw_events[t, i, j] = 1
                         t += 1
-                    # Applying a 30-minute rule for precipitation events
                     if t - start > 5:
                         raw_events[start:t, i, j] = 1
                 t += 1
     return raw_events, raw_data
 
 
-def event_length_legacy(raw_events):
+def event_length_legacy(raw_events: np.ndarray) -> np.ndarray:
     """
     Calculates the length of weather events.
     """
-    global TIME_STEPS_PER_DAY, GRID_SIZE
     lengths = np.empty((GRID_SIZE, GRID_SIZE), dtype=object)
 
     for i in range(GRID_SIZE):
